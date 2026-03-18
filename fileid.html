@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FileID — Binário como Número</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #07080d;
+    --surface: #0e0f17;
+    --border: #1a1b2e;
+    --accent: #f0e040;
+    --accent2: #ff6b35;
+    --text: #e8e8f0;
+    --muted: #44455a;
+    --success: #50fa7b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(240,224,64,0.04) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .wrapper {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 44px 20px 80px;
+    position: relative;
+    z-index: 1;
+  }
+
+  header { margin-bottom: 44px; }
+
+  .logo-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .logo-mark {
+    width: 36px; height: 36px;
+    border: 2px solid var(--accent);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 14px; font-weight: 700;
+    color: var(--accent);
+  }
+
+  .logo-text {
+    font-size: 12px;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 6vw, 3.4rem);
+    font-weight: 800;
+    line-height: 1.05;
+    color: #fff;
+    margin-bottom: 10px;
+  }
+
+  h1 em { font-style: normal; color: var(--accent); }
+
+  .subtitle {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.9;
+  }
+
+  .tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 5px;
+    margin-bottom: 28px;
+    gap: 4px;
+  }
+
+  .tab-btn {
+    padding: 13px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s;
+  }
+
+  .tab-btn.active { background: var(--accent); color: #000; }
+  .tab-btn:hover:not(.active) { color: var(--text); background: rgba(255,255,255,0.04); }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 32px;
+  }
+
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    margin-bottom: 20px;
+    opacity: 0.8;
+  }
+
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 52px 24px;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.25s;
+  }
+
+  .drop-zone:hover, .drop-zone.over {
+    border-color: var(--accent);
+    background: rgba(240,224,64,0.04);
+  }
+
+  .drop-zone input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%; height: 100%;
+  }
+
+  .drop-icon { font-size: 44px; margin-bottom: 14px; display: block; }
+  .drop-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .drop-sub { font-size: 12px; font-family: 'Space Mono', monospace; color: var(--muted); }
+
+  .progress-wrap { display: none; margin-top: 20px; }
+  .progress-wrap.show { display: block; }
+
+  .progress-status {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .progress-track { background: var(--border); border-radius: 999px; height: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s; border-radius: 999px; }
+
+  .id-output { display: none; margin-top: 28px; }
+  .id-output.show { display: block; }
+
+  .id-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .id-stats { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); }
+  .id-stats strong { color: var(--accent); }
+
+  .id-scroll-box {
+    background: #050609;
+    border: 1px solid rgba(240,224,64,0.15);
+    border-radius: 10px;
+    padding: 18px;
+    max-height: 180px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    word-break: break-all;
+    font-family: 'Space Mono', monospace;
+    font-size: 11.5px;
+    line-height: 1.8;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent) transparent;
+  }
+
+  .id-scroll-box::-webkit-scrollbar { width: 4px; }
+  .id-scroll-box::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
+
+  .id-actions { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+
+  .btn {
+    padding: 11px 20px;
+    border-radius: 8px;
+    border: none;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { background: #ffe800; }
+  .btn-primary.done { background: var(--success); }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+  .file-info-row {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding: 14px;
+    background: rgba(255,255,255,0.02);
+    border-radius: 8px;
+  }
+
+  .info-chip { font-size: 12px; font-family: 'Space Mono', monospace; color: var(--muted); }
+  .info-chip span { color: var(--text); }
+
+  .field-label {
+    font-size: 11px;
+    letter-spacing: 3px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  .filename-input {
+    width: 100%;
+    background: #050609;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    outline: none;
+    margin-bottom: 16px;
+    transition: border-color 0.2s;
+  }
+  .filename-input:focus { border-color: rgba(240,224,64,0.3); }
+  .filename-input::placeholder { color: var(--muted); }
+
+  .id-textarea {
+    width: 100%;
+    background: #050609;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    line-height: 1.8;
+    outline: none;
+    resize: vertical;
+    min-height: 160px;
+    word-break: break-all;
+    transition: border-color 0.2s;
+    margin-bottom: 14px;
+    letter-spacing: 0.5px;
+  }
+  .id-textarea:focus { border-color: rgba(240,224,64,0.3); }
+  .id-textarea::placeholder { color: var(--muted); font-size: 11px; }
+
+  .convert-btn {
+    width: 100%;
+    background: var(--accent);
+    border: none;
+    border-radius: 10px;
+    padding: 16px;
+    color: #000;
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .convert-btn:hover { background: #ffe800; transform: translateY(-1px); }
+  .convert-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .result-card {
+    display: none;
+    margin-top: 24px;
+    background: #050609;
+    border: 1px solid rgba(240,224,64,0.15);
+    border-radius: 12px;
+    padding: 24px;
+  }
+  .result-card.show { display: block; animation: fadeUp 0.3s ease; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-top { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+
+  .ext-badge {
+    background: rgba(240,224,64,0.1);
+    border: 1px solid rgba(240,224,64,0.2);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .result-name { font-size: 17px; font-weight: 700; color: var(--text); word-break: break-all; }
+  .result-size { font-size: 12px; font-family: 'Space Mono', monospace; color: var(--muted); margin-top: 2px; }
+
+  .preview-area { margin-bottom: 16px; border-radius: 8px; overflow: hidden; background: #020203; text-align: center; }
+  .preview-area img { max-width: 100%; max-height: 240px; object-fit: contain; display: block; margin: 0 auto; }
+  .preview-area video, .preview-area audio { width: 100%; }
+
+  .download-btn {
+    width: 100%;
+    background: rgba(240,224,64,0.08);
+    border: 1px solid rgba(240,224,64,0.25);
+    border-radius: 10px;
+    padding: 15px;
+    color: var(--accent);
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .download-btn:hover { background: rgba(240,224,64,0.14); }
+
+  .error-box {
+    display: none;
+    margin-top: 16px;
+    background: rgba(255,107,53,0.08);
+    border: 1px solid rgba(255,107,53,0.25);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--accent2);
+  }
+  .error-box.show { display: block; }
+
+  .info-box {
+    background: rgba(240,224,64,0.04);
+    border: 1px solid rgba(240,224,64,0.1);
+    border-radius: 10px;
+    padding: 16px 18px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.9;
+    margin-bottom: 24px;
+  }
+  .info-box strong { color: var(--accent); }
+
+  .footer {
+    text-align: center;
+    margin-top: 44px;
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    opacity: 0.5;
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <div class="logo-row">
+      <div class="logo-mark">ID</div>
+      <div class="logo-text">FileID System</div>
+    </div>
+    <h1>Arquivo = <em>Número</em></h1>
+    <p class="subtitle">
+      // o binário do arquivo vira um número decimal gigante<br>
+      // o número <strong style="color:#fff">contém</strong> o arquivo inteiro — sem servidor, sem banco
+    </p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('store')">⬆ Arquivo → ID</button>
+    <button class="tab-btn" onclick="switchTab('retrieve')">⬇ ID → Arquivo</button>
+  </div>
+
+  <!-- STORE -->
+  <div class="panel active" id="panel-store">
+    <div class="card">
+      <div class="section-label">// converter arquivo em número decimal</div>
+
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" onchange="handleFile(this.files[0])">
+        <span class="drop-icon">📄</span>
+        <div class="drop-title">Solte o arquivo aqui</div>
+        <div class="drop-sub">qualquer formato · qualquer tamanho</div>
+      </div>
+
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-status">
+          <span id="progressLabel">Lendo bytes...</span>
+          <span id="progressPct">0%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+
+      <div class="id-output" id="idOutput">
+        <div class="id-header">
+          <div class="section-label" style="margin-bottom:0">// ID gerado (número decimal)</div>
+          <div class="id-stats">
+            <strong id="digitCount">0</strong> dígitos &nbsp;·&nbsp;
+            <strong id="byteCount">0</strong> bytes originais
+          </div>
+        </div>
+        <div class="id-scroll-box" id="idScrollBox"></div>
+        <div class="id-actions">
+          <button class="btn btn-primary" id="copyBtn" onclick="copyId()">COPIAR ID</button>
+          <button class="btn btn-outline" onclick="downloadId()">⬇ Salvar .txt</button>
+          <button class="btn btn-outline" onclick="resetStore()">✕ Limpar</button>
+        </div>
+        <div class="file-info-row">
+          <div class="info-chip">nome: <span id="metaName">—</span></div>
+          <div class="info-chip">tipo: <span id="metaType">—</span></div>
+          <div class="info-chip">tamanho: <span id="metaSize">—</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RETRIEVE -->
+  <div class="panel" id="panel-retrieve">
+    <div class="card">
+      <div class="section-label">// colar o número → recuperar o arquivo</div>
+
+      <div class="info-box">
+        <strong>Como funciona:</strong><br>
+        O número decimal <strong>É</strong> o arquivo — cada dígito é parte do binário.<br>
+        Cole o ID, informe o nome+extensão original, e o arquivo é reconstruído.
+      </div>
+
+      <label class="field-label">Nome do arquivo (com extensão)</label>
+      <input class="filename-input" type="text" id="filenameInput" placeholder="ex: foto.jpg · musica.mp3 · relatorio.pdf">
+
+      <label class="field-label">Cole o ID numérico aqui</label>
+      <textarea class="id-textarea" id="idTextarea" placeholder="729301847362819047362...&#10;&#10;(número gerado na aba Arquivo → ID)"></textarea>
+
+      <button class="convert-btn" id="convertBtn" onclick="convertId()">▶ Converter ID → Arquivo</button>
+
+      <div class="error-box" id="errorBox"></div>
+
+      <div class="result-card" id="resultCard">
+        <div class="result-top">
+          <div class="ext-badge" id="extBadge">—</div>
+          <div>
+            <div class="result-name" id="resultName">—</div>
+            <div class="result-size" id="resultSize">—</div>
+          </div>
+        </div>
+        <div class="preview-area" id="previewArea" style="display:none"></div>
+        <button class="download-btn" onclick="downloadResult()">⬇ Baixar arquivo original</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">// processamento 100% local · nenhum byte sai do seu dispositivo</div>
+</div>
+
+<script>
+// ── CONVERSION CORE ──────────────────────────────────────────────────────────
+// Arquivo → bytes → hex → BigInt → decimal string
+// O byte 0x01 é prefixado como sentinela para preservar zeros à esquerda
+
+function bytesToDecimal(uint8) {
+  let hex = '01'; // sentinela
+  for (let i = 0; i < uint8.length; i++) {
+    hex += uint8[i].toString(16).padStart(2, '0');
+  }
+  return BigInt('0x' + hex).toString(10);
+}
+
+function decimalToBytes(decStr) {
+  decStr = decStr.trim().replace(/\s+/g, '');
+  if (!/^\d+$/.test(decStr)) throw new Error('ID inválido: contém caracteres não numéricos.');
+  const big = BigInt(decStr);
+  let hex = big.toString(16);
+  if (hex.length % 2 !== 0) hex = '0' + hex;
+  hex = hex.slice(2); // remove sentinela 0x01
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+}
+
+// ── UTILS ────────────────────────────────────────────────────────────────────
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  if (bytes < 1073741824) return (bytes / 1048576).toFixed(2) + ' MB';
+  return (bytes / 1073741824).toFixed(2) + ' GB';
+}
+
+function guessMime(filename) {
+  const ext = filename.split('.').pop().toLowerCase();
+  const map = {
+    jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', gif:'image/gif',
+    webp:'image/webp', svg:'image/svg+xml', bmp:'image/bmp',
+    mp4:'video/mp4', webm:'video/webm', mov:'video/quicktime', avi:'video/x-msvideo',
+    mp3:'audio/mpeg', wav:'audio/wav', ogg:'audio/ogg', flac:'audio/flac', aac:'audio/aac',
+    pdf:'application/pdf', txt:'text/plain', html:'text/html', css:'text/css',
+    json:'application/json', xml:'application/xml',
+    zip:'application/zip', gz:'application/gzip', rar:'application/x-rar-compressed',
+    doc:'application/msword',
+    docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls:'application/vnd.ms-excel',
+    xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ppt:'application/vnd.ms-powerpoint',
+    pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  };
+  return map[ext] || 'application/octet-stream';
+}
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+let currentDecimal = '';
+let currentFilename = '';
+let resultBlob = null;
+let resultFilename = '';
+
+// ── STORE ────────────────────────────────────────────────────────────────────
+function handleFile(file) {
+  if (!file) return;
+
+  const progressWrap = document.getElementById('progressWrap');
+  const progressFill = document.getElementById('progressFill');
+  const progressLabel = document.getElementById('progressLabel');
+  const progressPct = document.getElementById('progressPct');
+
+  document.getElementById('idOutput').classList.remove('show');
+  progressWrap.classList.add('show');
+  progressFill.style.width = '0%';
+  progressLabel.textContent = 'Lendo bytes...';
+  progressPct.textContent = '0%';
+
+  const reader = new FileReader();
+
+  reader.onprogress = (e) => {
+    if (e.lengthComputable) {
+      const pct = Math.round((e.loaded / e.total) * 55);
+      progressFill.style.width = pct + '%';
+      progressPct.textContent = pct + '%';
+    }
+  };
+
+  reader.onload = (e) => {
+    progressFill.style.width = '60%';
+    progressPct.textContent = '60%';
+    progressLabel.textContent = 'Convertendo para decimal...';
+
+    setTimeout(() => {
+      const bytes = new Uint8Array(e.target.result);
+      let decimal;
+      try {
+        decimal = bytesToDecimal(bytes);
+      } catch(err) {
+        alert('Erro: ' + err.message);
+        progressWrap.classList.remove('show');
+        return;
+      }
+
+      currentDecimal = decimal;
+      currentFilename = file.name;
+
+      progressFill.style.width = '100%';
+      progressPct.textContent = '100%';
+      progressLabel.textContent = 'Pronto!';
+
+      setTimeout(() => {
+        progressWrap.classList.remove('show');
+
+        document.getElementById('idScrollBox').textContent = decimal;
+        document.getElementById('digitCount').textContent = decimal.length.toLocaleString('pt-BR');
+        document.getElementById('byteCount').textContent = bytes.length.toLocaleString('pt-BR');
+        document.getElementById('metaName').textContent = file.name;
+        document.getElementById('metaType').textContent = file.type || 'desconhecido';
+        document.getElementById('metaSize').textContent = formatSize(file.size);
+
+        const copyBtn = document.getElementById('copyBtn');
+        copyBtn.textContent = 'COPIAR ID';
+        copyBtn.classList.remove('done');
+
+        document.getElementById('idOutput').classList.add('show');
+      }, 300);
+    }, 50);
+  };
+
+  reader.readAsArrayBuffer(file);
+}
+
+function copyId() {
+  if (!currentDecimal) return;
+  navigator.clipboard.writeText(currentDecimal).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = '✓ COPIADO!';
+    btn.classList.add('done');
+    setTimeout(() => { btn.textContent = 'COPIAR ID'; btn.classList.remove('done'); }, 2500);
+  });
+}
+
+function downloadId() {
+  if (!currentDecimal) return;
+  const blob = new Blob([currentDecimal], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (currentFilename || 'arquivo') + '.id.txt';
+  a.click();
+}
+
+function resetStore() {
+  currentDecimal = '';
+  currentFilename = '';
+  document.getElementById('idOutput').classList.remove('show');
+  document.getElementById('fileInput').value = '';
+}
+
+// ── RETRIEVE ─────────────────────────────────────────────────────────────────
+function convertId() {
+  const decStr = document.getElementById('idTextarea').value.trim();
+  const filename = document.getElementById('filenameInput').value.trim();
+  const errorBox = document.getElementById('errorBox');
+  const resultCard = document.getElementById('resultCard');
+  const btn = document.getElementById('convertBtn');
+
+  errorBox.classList.remove('show');
+  resultCard.classList.remove('show');
+  resultBlob = null;
+
+  if (!decStr) {
+    errorBox.textContent = 'Cole o ID numérico no campo acima.';
+    errorBox.classList.add('show');
+    return;
+  }
+  if (!filename) {
+    errorBox.textContent = 'Informe o nome do arquivo com extensão (ex: foto.jpg)';
+    errorBox.classList.add('show');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Convertendo...';
+
+  setTimeout(() => {
+    try {
+      const bytes = decimalToBytes(decStr);
+      const mime = guessMime(filename);
+      const blob = new Blob([bytes], { type: mime });
+
+      resultBlob = blob;
+      resultFilename = filename;
+
+      const ext = filename.split('.').pop().toUpperCase();
+      document.getElementById('extBadge').textContent = ext;
+      document.getElementById('resultName').textContent = filename;
+      document.getElementById('resultSize').textContent = formatSize(bytes.length) + ' · ' + mime;
+
+      // Preview
+      const previewArea = document.getElementById('previewArea');
+      previewArea.innerHTML = '';
+      previewArea.style.display = 'none';
+      const url = URL.createObjectURL(blob);
+
+      if (mime.startsWith('image/')) {
+        const img = document.createElement('img');
+        img.src = url;
+        previewArea.appendChild(img);
+        previewArea.style.display = 'block';
+      } else if (mime.startsWith('video/')) {
+        const vid = document.createElement('video');
+        vid.src = url; vid.controls = true;
+        previewArea.appendChild(vid);
+        previewArea.style.display = 'block';
+      } else if (mime.startsWith('audio/')) {
+        const aud = document.createElement('audio');
+        aud.src = url; aud.controls = true;
+        previewArea.appendChild(aud);
+        previewArea.style.display = 'block';
+      }
+
+      resultCard.classList.add('show');
+    } catch(err) {
+      errorBox.textContent = '⚠ Erro: ' + err.message;
+      errorBox.classList.add('show');
+    }
+
+    btn.disabled = false;
+    btn.textContent = '▶ Converter ID → Arquivo';
+  }, 60);
+}
+
+function downloadResult() {
+  if (!resultBlob) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(resultBlob);
+  a.download = resultFilename;
+  a.click();
+}
+
+// ── TABS ─────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', (i === 0 && tab === 'store') || (i === 1 && tab === 'retrieve'));
+  });
+  document.getElementById('panel-store').classList.toggle('active', tab === 'store');
+  document.getElementById('panel-retrieve').classList.toggle('active', tab === 'retrieve');
+}
+
+// ── DRAG & DROP ───────────────────────────────────────────────────────────────
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault();
+  dz.classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+</script>
+</body>
+</html>
