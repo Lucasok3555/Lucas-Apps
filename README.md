@@ -10,3 +10,5 @@ as nossas ferramentas que permitem que você crie uma internet com uma rede loca
 * Rede Tcp
 * Lnstr
 * RnOS
+* instalador reticulum
+* Lucas Apps Reticulum.json
