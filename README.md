@@ -1,11 +1,7 @@
-# bem-vindo os aplicativos do Lucas virtual
-a nossa lista de aplicativos virtuais do Lucas
+# bem-vindo à nossa loja do aplicativo
+a nossa loja de aplicativos baseado no nostr uma aplicação de código aberto aonde você permite baixar aplicativo para sistemas com Windows Android e todos os outros sistemas colecionados possível
 
-o nosso aplicativo da web ferecemos as coisas para o seu servidor
-
-as nossas ferramentas que permitem que você crie uma internet com uma rede local
-# Nossa você é um aplicativo
-
+# uma lista de aplicativos
 * tcp server
 * Rede Tcp
 * Lnstr
