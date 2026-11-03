@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LUCAS APPS</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07090f;--card:#0e1220;--line:#1c2540;--ac:#00ffc8;--ac2:#ff2bd6;--tx:#d6e2ff;--mu:#7d8bb0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 'Share Tech Mono',monospace}
+a{color:var(--ac);text-decoration:none}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:10px 16px;background:#0a0e1acc;backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.logo{font:700 18px Orbitron,sans-serif;color:var(--ac);text-shadow:0 0 10px var(--ac)}
+main{max-width:1000px;margin:0 auto;padding:18px 16px 60px}
+h2{font:700 16px Orbitron,sans-serif;color:var(--ac2);margin:22px 0 10px}
+.btn,button{font:inherit;background:transparent;color:var(--ac);border:1px solid var(--ac);padding:7px 14px;border-radius:6px;cursor:pointer}
+.btn:hover,button:hover{background:var(--ac);color:#000}
+button.red{color:var(--ac2);border-color:var(--ac2)}button.red:hover{background:var(--ac2);color:#000}
+.acct{display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border-radius:30px}
+.av{width:30px;height:30px;border-radius:50%;background:var(--line);object-fit:cover;display:inline-flex;align-items:center;justify-content:center;color:var(--ac);flex:none}
+.av.big{width:90px;height:90px;font-size:36px}
+input,textarea{width:100%;background:#05070d;color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:9px;font:inherit;margin:4px 0 10px}
+input:focus,textarea:focus{outline:none;border-color:var(--ac)}
+label{color:var(--mu);font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;color:var(--tx);display:block}
+.card:hover{border-color:var(--ac);box-shadow:0 0 14px #00ffc833}
+.ico{width:64px;height:64px;border-radius:14px;object-fit:cover;background:var(--line);display:flex;align-items:center;justify-content:center;color:var(--ac);font-size:26px;flex:none}
+.ico.big{width:110px;height:110px;font-size:44px}
+.card p{margin:8px 0 0;color:var(--mu);font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.item{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px}
+.item .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shots{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px}
+.shots img{height:320px;border-radius:8px;border:1px solid var(--line)}
+.mu{color:var(--mu)}.pre{white-space:pre-wrap}
+dialog{background:var(--card);color:var(--tx);border:1px solid var(--ac);border-radius:12px;width:min(440px,92vw);padding:20px}
+dialog::backdrop{background:#000a}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ac);color:#000;padding:8px 16px;border-radius:6px;display:none;z-index:9}
+.key{word-break:break-all;background:#05070d;border:1px dashed var(--ac2);padding:8px;border-radius:6px;margin:6px 0}
+</style>
+</head>
+<body>
+<header>
+  <a class="logo" href="#/">LUCAS_APPS</a>
+  <span style="flex:1"></span>
+  <a id="btnPainel" class="btn" href="#/painel" hidden>PAINEL</a>
+  <button id="acct" class="acct"></button>
+</header>
+<main id="view"></main>
+<dialog id="dlg"></dialog>
+<div id="toast"></div>
+
+<script type="module">
+import {generateSecretKey,getPublicKey,finalizeEvent,nip19,SimplePool} from 'https://esm.sh/nostr-tools@2.7.2';
+
+const TAG='lucas-apps';
+const DEF=['wss://nos.lol','wss://relay.primal.net','wss://relay.damus.io'];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const url=u=>/^https?:\/\//i.test((u||'').trim())?u.trim():'';
+const toHex=b=>[...b].map(x=>x.toString(16).padStart(2,'0')).join('');
+const fromHex=h=>Uint8Array.from(h.match(/../g).map(x=>parseInt(x,16)));
+const ls={get:k=>{try{return localStorage.getItem(k)}catch{return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch{}},del:k=>{try{localStorage.removeItem(k)}catch{}}};
+const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',3000)};
+
+let relays;try{relays=JSON.parse(ls.get('relays'))}catch{}
+if(!Array.isArray(relays)||!relays.length)relays=[...DEF];
+const pool=new SimplePool();
+let sk=null,pk=null,apps=[],loaded=false,editing=null;
+const profs={};
+
+async function prof(p,force){
+  if(profs[p]&&!force)return profs[p];
+  let o={};
+  try{const e=await pool.get(relays,{kinds:[0],authors:[p]});if(e)o=JSON.parse(e.content)}catch{}
+  return profs[p]=o;
+}
+const avatar=(o,cls='')=>url(o.picture)?`<img class="av ${cls}" src="${esc(url(o.picture))}" alt="">`:`<span class="av ${cls}">${esc((o.name||'?')[0].toUpperCase())}</span>`;
+const icon=(a,cls='')=>url(a.icon)?`<img class="ico ${cls}" src="${esc(url(a.icon))}" alt="">`:`<span class="ico ${cls}">${esc((a.name||'?')[0].toUpperCase())}</span>`;
+
+async function pub(t){
+  const ev=finalizeEvent({...t,created_at:Math.floor(Date.now()/1000)},sk);
+  try{await Promise.any(pool.publish(relays,ev));return true}
+  catch{toast('Falha ao publicar nos servidores');return false}
+}
+
+async function loadApps(){
+  loaded=false;
+  let evs=[];
+  try{evs=await pool.querySync(relays,{kinds:[30078],'#t':[TAG],limit:300})}catch{}
+  const best=new Map();
+  for(const e of evs){
+    const d=(e.tags.find(t=>t[0]==='d')||[])[1];if(d==null)continue;
+    const k=e.pubkey+':'+d,o=best.get(k);
+    if(!o||e.created_at>o.created_at)best.set(k,e);
+  }
+  const au=[...new Set([...best.values()].map(e=>e.pubkey))];
+  let dels=[];
+  if(au.length){try{dels=await pool.querySync(relays,{kinds:[5],authors:au,'#k':['30078']})}catch{}}
+  const dm=new Map();
+  for(const x of dels)for(const t of x.tags)if(t[0]==='a')dm.set(t[1],Math.max(dm.get(t[1])||0,x.created_at));
+  apps=[...best].filter(([k,e])=>!(dm.get('30078:'+k)>=e.created_at)).map(([k,e])=>{
+    let c={};try{c=JSON.parse(e.content)}catch{}
+    return {...c,pk:e.pubkey,d:k.slice(65),at:e.created_at};
+  }).filter(a=>a.name).sort((a,b)=>b.at-a.at);
+  loaded=true;
+}
+
+/* ---------- conta ---------- */
+async function renderBar(){
+  const b=$('#acct');
+  $('#btnPainel').hidden=!sk;
+  if(!sk){b.innerHTML='<span class="av">?</span> Conta';return}
+  const o=await prof(pk);
+  b.innerHTML=avatar(o)+`<span>${esc(o.name||nip19.npubEncode(pk).slice(0,12)+'…')}</span>`;
+}
+function login(key){
+  sk=key;pk=getPublicKey(sk);ls.set('sk',toHex(sk));
+  renderBar();route();
+}
+function logout(){sk=null;pk=null;ls.del('sk');renderBar();location.hash='#/'}
+$('#acct').onclick=()=>{
+  if(sk){location.hash='#/perfil/'+pk;return}
+  const d=$('#dlg');
+  d.innerHTML=`<h2 style="margin-top:0">ENTRAR</h2>
+    <label>Sua chave Nostr (nsec1… ou hex)</label>
+    <input id="nsec" type="password" placeholder="nsec1..." autocomplete="off">
+    <div class="row"><button id="doLogin">Entrar</button><button id="doCreate" class="red">Criar chave Nostr</button><button id="doClose">Fechar</button></div>`;
+  d.showModal();
+  $('#doClose').onclick=()=>d.close();
+  $('#doLogin').onclick=()=>{
+    const v=$('#nsec').value.trim();
+    try{
+      let k;
+      if(v.startsWith('nsec1')){const r=nip19.decode(v);if(r.type!=='nsec')throw 0;k=r.data}
+      else if(/^[0-9a-f]{64}$/i.test(v))k=fromHex(v.toLowerCase());
+      else throw 0;
+      d.close();login(k);toast('Conectado');
+    }catch{toast('Chave inválida')}
+  };
+  $('#doCreate').onclick=()=>{
+    const k=generateSecretKey(),n=nip19.nsecEncode(k);
+    d.innerHTML=`<h2 style="margin-top:0">CHAVE CRIADA</h2>
+      <p class="mu">Guarde sua chave privada. Quem a tiver controla sua conta e não há como recuperá-la.</p>
+      <label>Chave privada (nsec)</label><div class="key">${n}</div>
+      <label>Chave pública (npub)</label><div class="key">${nip19.npubEncode(getPublicKey(k))}</div>
+      <div class="row"><button id="cp">Copiar nsec</button><button id="ok">Já guardei, continuar</button></div>`;
+    $('#cp').onclick=()=>navigator.clipboard?.writeText(n).then(()=>toast('Copiado'));
+    $('#ok').onclick=()=>{d.close();login(k)};
+  };
+};
+
+/* ---------- views ---------- */
+const V=$('#view');
+async function viewHome(){
+  V.innerHTML='<h2>APLICATIVOS</h2><p class="mu">Carregando...</p>';
+  if(!loaded)await loadApps();
+  V.innerHTML='<h2>APLICATIVOS</h2>'+(apps.length?`<div class="grid">${apps.map(a=>`
+    <a class="card" href="#/app/${a.pk}/${encodeURIComponent(a.d)}">
+      <div class="row">${icon(a)}<b>${esc(a.name)}</b></div><p>${esc(a.desc)}</p></a>`).join('')}</div>`
+    :'<p class="mu">Nenhum aplicativo publicado ainda.</p>');
+}
+
+async function viewApp(p,d){
+  if(!loaded){V.innerHTML='<p class="mu">Carregando...</p>';await loadApps()}
+  const a=apps.find(x=>x.pk===p&&x.d===d);
+  if(!a){V.innerHTML='<p>Aplicativo não encontrado. <a href="#/">Voltar</a></p>';return}
+  const o=await prof(p),shots=(a.shots||[]).map(url).filter(Boolean);
+  V.innerHTML=`<p><a href="#/">← voltar</a></p>
+    <div class="row">${icon(a,'big')}<div><h2 style="margin:0">${esc(a.name)}</h2>
+    <p class="mu" style="margin:4px 0">por <a href="#/perfil/${p}">${esc(o.name||nip19.npubEncode(p).slice(0,14)+'…')}</a></p>
+    ${url(a.link)?`<a class="btn" href="${esc(url(a.link))}" target="_blank" rel="noopener">⬇ DOWNLOAD</a>`:''}</div></div>
+    ${shots.length?`<h2>PRINTS</h2><div class="shots">${shots.map(s=>`<img src="${esc(s)}" alt="">`).join('')}</div>`:''}
+    <h2>DESCRIÇÃO</h2><div class="pre">${esc(a.desc)}</div>`;
+}
+
+function appList(list,own){
+  return list.length?list.map(a=>`<div class="item">${icon(a)}
+    <a class="grow" href="#/app/${a.pk}/${encodeURIComponent(a.d)}">${esc(a.name)}</a>
+    ${own?`<button data-edit="${esc(a.d)}">Editar</button><button class="red" data-del="${esc(a.d)}">Apagar</button>`:''}</div>`).join('')
+    :'<p class="mu">Nenhum aplicativo.</p>';
+}
+
+async function viewPanel(){
+  if(!sk){V.innerHTML='<p>Entre com sua conta para usar o painel.</p>';return}
+  if(!loaded)await loadApps();
+  const mine=apps.filter(a=>a.pk===pk),e=editing&&mine.find(a=>a.d===editing)||{};
+  if(!e.d)editing=null;
+  V.innerHTML=`<h2>${editing?'EDITAR APLICATIVO':'NOVO APLICATIVO'}</h2>
+    <label>Nome do aplicativo</label><input id="f_name" value="${esc(e.name)}">
+    <label>Foto (ícone) — link da imagem</label><input id="f_icon" value="${esc(e.icon)}">
+    <label>Prints — um link de imagem por linha</label><textarea id="f_shots" rows="4">${esc((e.shots||[]).join('\n'))}</textarea>
+    <label>Link de download</label><input id="f_link" value="${esc(e.link)}">
+    <label>Descrição</label><textarea id="f_desc" rows="5">${esc(e.desc)}</textarea>
+    <div class="row"><button id="save">${editing?'Salvar alterações':'Publicar'}</button>${editing?'<button id="cancel" class="red">Cancelar</button>':''}</div>
+    <h2>MEUS APLICATIVOS</h2>${appList(mine,true)}`;
+  $('#save').onclick=async()=>{
+    const name=$('#f_name').value.trim();
+    if(!name){toast('Informe o nome');return}
+    const c={name,icon:$('#f_icon').value.trim(),shots:$('#f_shots').value.split('\n').map(s=>s.trim()).filter(Boolean),link:$('#f_link').value.trim(),desc:$('#f_desc').value.trim()};
+    const d=editing||(Date.now().toString(36)+Math.random().toString(36).slice(2,6));
+    if(await pub({kind:30078,tags:[['d',d],['t',TAG]],content:JSON.stringify(c)})){
+      editing=null;toast('Publicado');await loadApps();viewPanel();
+    }
+  };
+  if(editing)$('#cancel').onclick=()=>{editing=null;viewPanel()};
+}
+
+async function viewProfile(p){
+  if(!p){V.innerHTML='<p>Perfil não encontrado.</p>';return}
+  V.innerHTML='<p class="mu">Carregando...</p>';
+  const own=p===pk;
+  const [o]=await Promise.all([prof(p,true),loaded?0:loadApps()]);
+  const mine=apps.filter(a=>a.pk===p);
+  V.innerHTML=`<div class="row">${avatar(o,'big')}<div><h2 style="margin:0">${esc(o.name||'Sem nome')}</h2>
+    <div class="mu" style="word-break:break-all">${nip19.npubEncode(p)}</div></div></div>
+    ${own?`<h2>EDITAR PERFIL</h2>
+      <label>Nome da conta</label><input id="p_name" value="${esc(o.name)}">
+      <label>Foto de perfil — link da imagem</label><input id="p_pic" value="${esc(o.picture)}">
+      <button id="p_save">Salvar perfil</button>`:''}
+    <h2>APLICATIVOS PUBLICADOS</h2>${appList(mine,false)}
+    ${own?`<h2>SERVIDORES NOSTR</h2><div id="rl">${relays.map((r,i)=>`<div class="item"><span class="grow">${esc(r)}</span><button class="red" data-rm="${i}">Remover</button></div>`).join('')}</div>
+      <div class="row"><input id="r_new" placeholder="wss://servidor.exemplo" style="flex:1;margin:0"><button id="r_add">Adicionar</button></div>
+      <h2>CONTA</h2><button class="red" id="out">Sair</button>`:''}`;
+  if(!own)return;
+  $('#p_save').onclick=async()=>{
+    const n={...o,name:$('#p_name').value.trim(),picture:$('#p_pic').value.trim()};
+    if(await pub({kind:0,tags:[],content:JSON.stringify(n)})){profs[pk]=n;toast('Perfil salvo');renderBar();viewProfile(pk)}
+  };
+  $('#r_add').onclick=()=>{
+    const v=$('#r_new').value.trim();
+    if(!/^wss?:\/\/.+/i.test(v)){toast('Use um endereço wss://');return}
+    if(!relays.includes(v))relays.push(v);
+    ls.set('relays',JSON.stringify(relays));loaded=false;viewProfile(pk);
+  };
+  $('#out').onclick=logout;
+}
+
+/* ---------- eventos e rota ---------- */
+document.addEventListener('click',async e=>{
+  const t=e.target.closest('[data-edit],[data-del],[data-rm]');if(!t)return;
+  if(t.dataset.edit){editing=t.dataset.edit;viewPanel();scrollTo(0,0)}
+  else if(t.dataset.del){
+    if(!confirm('Apagar este aplicativo?'))return;
+    if(await pub({kind:5,tags:[['a',`30078:${pk}:${t.dataset.del}`],['k','30078']],content:''})){
+      toast('Apagado');await loadApps();viewPanel();
+    }
+  }else if(t.dataset.rm!==undefined){
+    if(relays.length<2){toast('Mantenha ao menos um servidor');return}
+    relays.splice(+t.dataset.rm,1);ls.set('relays',JSON.stringify(relays));loaded=false;viewProfile(pk);
+  }
+});
+
+function route(){
+  const p=(location.hash.slice(1)||'/').split('/');
+  scrollTo(0,0);
+  if(p[1]==='app')viewApp(p[2],decodeURIComponent(p[3]||''));
+  else if(p[1]==='painel'){editing=null;viewPanel()}
+  else if(p[1]==='perfil')viewProfile(p[2]||pk);
+  else viewHome();
+}
+addEventListener('hashchange',route);
+
+const saved=ls.get('sk');
+if(saved&&/^[0-9a-f]{64}$/.test(saved)){sk=fromHex(saved);pk=getPublicKey(sk)}
+renderBar();route();
+</script>
+</body>
+</html>
